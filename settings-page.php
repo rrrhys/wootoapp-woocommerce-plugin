@@ -18,6 +18,7 @@ $product_categories = get_terms( $args );
 
 
 ?>
+<link rel="stylesheet" href="https://app.wootoapp.com/wta-wc-react.css">
 <div id="wta-root">
 
 </div>
