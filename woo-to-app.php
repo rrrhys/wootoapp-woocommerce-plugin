@@ -13,31 +13,35 @@ Copyright: © 2017 WooToApp
 add_action( 'plugins_loaded', 'wta_init', 0 );
 
 
-function safe_json_encode( $mixed, $missing = "TRANSLIT" ) {
-	$out = json_encode( $mixed );
-	if ( $err = json_last_error() ) {
-		iconv_r( "UTF-8", "UTF-8//$missing", $mixed );
+if(!function_exists("safe_json_encode")){
+	function safe_json_encode( $mixed, $missing = "TRANSLIT" ) {
 		$out = json_encode( $mixed );
-	}
-
-	return $out;
-}
-function iconv_r( $charset_i, $charset_o, &$mixed ) {
-	if ( is_string( $mixed ) ) {
-		$mixed = iconv( $charset_i, $charset_o, $mixed );
-	} else {
-		if ( is_object( $mixed ) ) {
-			$mixed = (array) $mixed;
+		if ( $err = json_last_error() ) {
+			iconv_r( "UTF-8", "UTF-8//$missing", $mixed );
+			$out = json_encode( $mixed );
 		}
-		if ( is_array( $mixed ) ) {
-			foreach ( $mixed as $key => &$value ) {
-				iconv_r( $charset_i, $charset_o, $value );
+
+		return $out;
+	}
+}
+
+if(! function_exists("iconv_r")){
+
+	function iconv_r( $charset_i, $charset_o, &$mixed ) {
+		if ( is_string( $mixed ) ) {
+			$mixed = iconv( $charset_i, $charset_o, $mixed );
+		} else {
+			if ( is_object( $mixed ) ) {
+				$mixed = (array) $mixed;
+			}
+			if ( is_array( $mixed ) ) {
+				foreach ( $mixed as $key => &$value ) {
+					iconv_r( $charset_i, $charset_o, $value );
+				}
 			}
 		}
 	}
 }
-
-
 
 function wta_init() {
 	class WooToApp {
