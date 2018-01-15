@@ -4,11 +4,13 @@ $settings = [];
 $settings['store_id']   = get_option( 'WC_settings_wootoapp_site_id' );
 $settings['secret_key'] = get_option( 'WC_settings_wootoapp_secret_key' );
 
+$force_use_local = false;
+$force_use_local_db = false;
 $dev_url = "www.wooc.local";
-$use_local_react = true;//$_SERVER['HTTP_HOST'] === $dev_url;
-$use_prod_db = true;//!($_SERVER['HTTP_HOST'] === $dev_url);
+$use_local_react = $_SERVER['HTTP_HOST'] === $dev_url || $force_use_local;//true;
+$use_prod_db =  ($force_use_local_db || ( $_SERVER['HTTP_HOST'] === $dev_url)) ? false : true;
 
-$using_some_dev_params = $use_local_react || ! $use_prod_db;
+$using_some_dev_params = !!($force_use_local || $force_use_local_db);
 $args               = array(
 	'taxonomy'   => "product_cat",
 	'number'     => $number,
@@ -43,7 +45,7 @@ if($paypal_opts){
             secret_key: '<?php echo str_replace( "\'", "", $settings['secret_key']); ?>'
         },
         environment: "<?php echo $use_prod_db ? "prod" : "dev"; ?>",
-        has_dev_params: <?php echo $using_some_dev_params;?>,
+        has_dev_params: <?php echo $using_some_dev_params ? "true" : "false";?>,
         categories: <?php echo json_encode($product_categories); ?>,
         pages: <?php echo json_encode(get_pages()); ?>,
         woo_currencies: <?php echo json_encode(get_woocommerce_currencies()); ?>,
