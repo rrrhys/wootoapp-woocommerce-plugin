@@ -6,9 +6,18 @@ $settings['secret_key'] = get_option( 'WC_settings_wootoapp_secret_key' );
 
 $force_use_local = false;
 $force_use_local_db = false;
+$force_use_prod_db = true;
+$force_use_prod = true;
 $dev_url = "www.wooc.local";
 $use_local_react = $_SERVER['HTTP_HOST'] === $dev_url || $force_use_local;//true;
 $use_prod_db =  ($force_use_local_db || ( $_SERVER['HTTP_HOST'] === $dev_url)) ? false : true;
+
+if($force_use_prod_db){
+    $use_prod_db = true;
+}
+if ( $force_use_prod ) {
+	$use_local_react = false;
+}
 
 $using_some_dev_params = !!($force_use_local || $force_use_local_db);
 $args               = array(
