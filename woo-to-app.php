@@ -149,12 +149,91 @@ function wta_init() {
 			die();
 		}
 
+		public function reset_email($email){
+
+
+				$user_data = get_user_by( 'email', trim( wp_unslash( $email ) ) );
+
+
+			if ( ! $user_data ) {
+
+				return false;
+			}
+
+			// Redefining user_login ensures we return the right case in the email.
+			$user_login = $user_data->user_login;
+			$user_email = $user_data->user_email;
+			$key        = get_password_reset_key( $user_data );
+
+			if ( is_wp_error( $key ) ) {
+				return $key;
+			}
+
+			$message = __( 'Someone has requested a password reset for the following account:' ) . "\r\n\r\n";
+			$message .= network_home_url( '/' ) . "\r\n\r\n";
+			$message .= sprintf( __( 'Username: %s' ), $user_login ) . "\r\n\r\n";
+			$message .= __( 'If this was a mistake, just ignore this email and nothing will happen.' ) . "\r\n\r\n";
+			$message .= __( 'To reset your password, visit the following address:' ) . "\r\n\r\n";
+			$message .= '<' . network_site_url( "wp-login.php?action=rp&key=$key&login=" . rawurlencode( $user_login ),
+					'login' ) . ">\r\n";
+
+			if ( is_multisite() ) {
+				$blogname = get_network()->site_name;
+			} else {
+				/*
+				 * The blogname option is escaped with esc_html on the way into the database
+				 * in sanitize_option we want to reverse this for the plain text arena of emails.
+				 */
+				$blogname = wp_specialchars_decode( get_option( 'blogname' ), ENT_QUOTES );
+			}
+
+			/* translators: Password reset email subject. 1: Site name */
+			$title = sprintf( __( '[%s] Password Reset' ), $blogname );
+
+			$title = apply_filters( 'retrieve_password_title', $title, $user_login, $user_data );
+
+			$message = apply_filters( 'retrieve_password_message', $message, $key, $user_login, $user_data );
+
+			if ( $message && ! wp_mail( $user_email, wp_specialchars_decode( $title ), $message ) ) {
+				wp_die( __( 'The email could not be sent.' ) . "<br />\n" . __( 'Possible reason: your host may have disabled the mail() function.' ) );
+			}
+
+			return true;
+
+		}
+
 		public function execute_callback_authenticated($method, $user){
 
 			global $wpdb;
 
 			$request = json_decode( file_get_contents( 'php://input' ), true );;
 			switch($method){
+				case "user_for_email":
+					$u = get_user_by("email", $request['email']);
+					wp_send_json( [ 'user'=>$u, 'email_supplied'=>$request['email'] ] );
+
+					break;
+				case "authenticate":
+					$creds                  = array();
+					$creds['user_login']    = $request["email"];
+					$creds['user_password'] = $request["password"];
+
+					$user                   = wp_signon( $creds, false );
+
+					if($user){
+						if($user->errors){
+							wp_send_json( [ 'result' => false, 'user' => null, 'errors'=>$user->errors ] );
+
+						}
+						else{
+							wp_send_json( [ 'result' => true, 'user' => $user ] );
+
+						}
+					}
+					wp_send_json( [ 'result' =>false, 'user' => null ] );
+
+					break;
+
 				case "get_shipping_quotation":
 					$line_items = $request['line_items'];
 					$user_id = $request['user_id'];
@@ -165,6 +244,14 @@ function wta_init() {
 					$shipping_methods = $this->_get_shipping_methods( $line_items);
 
 					return [ 'shipping_methods' => $shipping_methods, 'user_id'=>$user_id ];
+					break;
+				case "send_password_reset_email":
+					$email = $request['email'];
+
+
+					echo $this->reset_email($email) ? "true" : "false";
+
+					echo "ok3";
 					break;
 			}
 		}
