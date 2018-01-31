@@ -22,11 +22,6 @@ if ( $force_use_prod ) {
 $using_some_dev_params = !!($force_use_local || $force_use_local_db);
 $args               = array(
 	'taxonomy'   => "product_cat",
-	'number'     => $number,
-	'orderby'    => $orderby,
-	'order'      => $order,
-	'hide_empty' => $hide_empty,
-	'include'    => $ids
 );
 $product_categories = get_terms( $args );
 
