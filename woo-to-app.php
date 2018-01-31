@@ -1,13 +1,28 @@
 <?php
-/*
-Plugin Name: Woo To App Store Plugin
-Plugin URI: https://www.wootoapp.com
-Description: Enables various functionality required by Woo To App
-Version: 0.0.1
-Author: WooToApp
-Author URI: https://www.wootoapp.com
 
-Copyright: © 2017 WooToApp
+/*
+Plugin Name:    Connector for WooToApp Mobile
+Plugin URI:     https://www.wootoapp.com
+Description:    Enables various functionality required by WooToApp Mobile. WooToApp Mobile allows you to quickly and painlessly create a native mobile experience for your WooCommerce Store. Simply install and configure the plugin and we'll do the rest. WooToApp Mobile is free to use (branded) and offers paid subscriptions to release a standalone native mobile app.
+Version:        0.0.1
+Author:         WooToApp - Rhys Williams
+Author          URI: https://www.wootoapp.com
+License:        GPL2
+License URI:    https://www.gnu.org/licenses/gpl-2.0.html
+
+
+Connector for WooToApp Mobile is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 2 of the License, or
+any later version.
+
+Connector for WooToApp Mobile is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Connector for WooToApp Mobile. If not, see https://www.gnu.org/licenses/gpl-2.0.html.
 */
 
 add_action( 'plugins_loaded', 'wta_init', 0 );
@@ -40,18 +55,21 @@ function wta_init() {
 			add_action( 'woocommerce_update_options_settings_wootoapp', array( $this, 'update_settings' ) );
 
 
-			header( 'Access-Control-Allow-Credentials:true' );
-			header( 'Access-Control-Allow-Headers:Authorization, Content-Type' );
-			header( 'Access-Control-Allow-Methods:OPTIONS, GET, POST, PUT, PATCH, DELETE' );
-			header( 'Access-Control-Allow-Origin: *' );
-			header( 'Allow: GET' );
-
-			if ( $_SERVER['REQUEST_METHOD'] == 'OPTIONS' ) {
+			if(isset( $_REQUEST['action']) && $_REQUEST['action'] === "wootoapp_execute"){
+				header( 'Access-Control-Allow-Credentials:true' );
+				header( 'Access-Control-Allow-Headers:Authorization, Content-Type' );
+				header( 'Access-Control-Allow-Methods:OPTIONS, GET, POST, PUT, PATCH, DELETE' );
 				header( 'Access-Control-Allow-Origin: *' );
-				header( 'Access-Control-Allow-Headers: X-Requested-With, Authorization, Content-Type' );
-				header( "HTTP/1.1 200 OK" );
-				die();
+				header( 'Allow: GET' );
+
+				if ( $_SERVER['REQUEST_METHOD'] == 'OPTIONS' ) {
+					header( 'Access-Control-Allow-Origin: *' );
+					header( 'Access-Control-Allow-Headers: X-Requested-With, Authorization, Content-Type' );
+					header( "HTTP/1.1 200 OK" );
+					die();
+				}
 			}
+
 			/* END endpoints */
 
 		}
@@ -64,15 +82,7 @@ function wta_init() {
 		}
 
 		public function settings_tab() {
-		//	woocommerce_admin_fields( self::get_settings() );
-
-
 			include_once("settings-page.php");
-			?>
-
-
-			<?php
-
 		}
 
 		public static function update_settings() {
