@@ -25,6 +25,10 @@ You should have received a copy of the GNU General Public License
 along with Connector for WooToApp Mobile. If not, see https://www.gnu.org/licenses/gpl-2.0.html.
 */
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+} // Exit if accessed directly
+
 add_action( 'plugins_loaded', 'wta_init', 0 );
 
 function wta_init() {
@@ -55,6 +59,7 @@ function wta_init() {
 			add_action( 'woocommerce_update_options_settings_wootoapp', array( $this, 'update_settings' ) );
 
 
+
 			if(isset( $_REQUEST['action']) && $_REQUEST['action'] === "wootoapp_execute"){
 				header( 'Access-Control-Allow-Credentials:true' );
 				header( 'Access-Control-Allow-Headers:Authorization, Content-Type' );
@@ -74,6 +79,53 @@ function wta_init() {
 
 		}
 
+		public function wta_css_and_js() {
+			$settings               = [];
+			$settings['store_id']   = get_option( 'WC_settings_wootoapp_site_id' );
+			$settings['secret_key'] = get_option( 'WC_settings_wootoapp_secret_key' );
+
+			$args               = array(
+				'taxonomy' => "product_cat",
+			);
+			$product_categories = get_terms( $args );
+
+			$paypal_email = "";
+
+			$paypal_opts = get_option( "woocommerce_paypal_settings" );
+			if ( $paypal_opts ) {
+				$paypal_email = $paypal_opts['email'];
+			}
+
+			$store_id   = str_replace( "\'", "", $settings['store_id'] );
+			$secret_key = str_replace( "\'", "", $settings['secret_key'] );
+			$cats_json  = json_encode( $product_categories );
+			$currency   = json_encode( get_woocommerce_currencies() );
+			$pages      = json_encode( get_pages() );
+
+			wp_register_script( 'wta_js', "https://app.wootoapp.com/wta-wc-react.js" );
+			wp_add_inline_script( 'wta_js', <<<EOF
+					    window.WooToApp = {
+					        auth: {
+					            id: '{$store_id}',
+					            secret_key: '{$secret_key}'
+					        },
+					        environment: "prod",
+					        has_dev_params: false,
+					        categories: $cats_json,
+					        pages: $pages,
+					        woo_currencies:$currency,
+					        currency: "<?php echo get_woocommerce_currency(); ?>",
+					        paypal_email: "$paypal_email"
+					    }
+					
+					    window.WooToApp.log = window.WooToApp.environment == "prod" ? function(){} : console.log;
+EOF
+				, "before" );
+
+
+			wp_enqueue_style( 'wta_css', "https://app.wootoapp.com/wta-wc-react.css" );
+			wp_enqueue_script( 'wta_js' );
+		}
 
 		public function add_settings_tab( $settings_tabs ) {
 			$settings_tabs['settings_wootoapp'] = __( 'WooToApp', 'woocommerce-settings-tab-wootoapp' );
@@ -82,6 +134,7 @@ function wta_init() {
 		}
 
 		public function settings_tab() {
+			$this->wta_css_and_js();
 			include_once("settings-page.php");
 		}
 
@@ -159,6 +212,58 @@ function wta_init() {
 			die();
 		}
 
+		public function execute_callback_authenticated( $method, $user ) {
+
+			global $wpdb;
+
+			$request = json_decode( file_get_contents( 'php://input' ), true );;
+			switch ( $method ) {
+				case "user_for_email":
+					$u = get_user_by( "email", $request['email'] );
+					wp_send_json( [ 'user' => $u, 'email_supplied' => $request['email'] ] );
+
+					break;
+				case "authenticate":
+					$creds                  = array();
+					$creds['user_login']    = $request["email"];
+					$creds['user_password'] = $request["password"];
+
+					$user = wp_signon( $creds, false );
+
+					if ( $user ) {
+						if ( $user->errors ) {
+							wp_send_json( [ 'result' => false, 'user' => null, 'errors' => $user->errors ] );
+
+						} else {
+							wp_send_json( [ 'result' => true, 'user' => $user ] );
+
+						}
+					}
+					wp_send_json( [ 'result' => false, 'user' => null ] );
+
+					break;
+
+				case "get_shipping_quotation":
+					$line_items = $request['line_items'];
+					$user_id    = $request['user_id'];
+
+
+					wp_set_current_user( $user_id );
+					$shipping_methods = $this->_get_shipping_methods( $line_items );
+
+					return [ 'shipping_methods' => $shipping_methods, 'user_id' => $user_id ];
+					break;
+				case "send_password_reset_email":
+					$email = $request['email'];
+
+
+					echo $this->reset_email( $email ) ? "true" : "false";
+
+					echo "ok3";
+					break;
+			}
+		}
+
 		public function reset_email($email){
 
 
@@ -212,60 +317,6 @@ function wta_init() {
 
 		}
 
-		public function execute_callback_authenticated($method, $user){
-
-			global $wpdb;
-
-			$request = json_decode( file_get_contents( 'php://input' ), true );;
-			switch($method){
-				case "user_for_email":
-					$u = get_user_by("email", $request['email']);
-					wp_send_json( [ 'user'=>$u, 'email_supplied'=>$request['email'] ] );
-
-					break;
-				case "authenticate":
-					$creds                  = array();
-					$creds['user_login']    = $request["email"];
-					$creds['user_password'] = $request["password"];
-
-					$user                   = wp_signon( $creds, false );
-
-					if($user){
-						if($user->errors){
-							wp_send_json( [ 'result' => false, 'user' => null, 'errors'=>$user->errors ] );
-
-						}
-						else{
-							wp_send_json( [ 'result' => true, 'user' => $user ] );
-
-						}
-					}
-					wp_send_json( [ 'result' =>false, 'user' => null ] );
-
-					break;
-
-				case "get_shipping_quotation":
-					$line_items = $request['line_items'];
-					$user_id = $request['user_id'];
-
-
-
-					wp_set_current_user( $user_id );
-					$shipping_methods = $this->_get_shipping_methods( $line_items);
-
-					return [ 'shipping_methods' => $shipping_methods, 'user_id'=>$user_id ];
-					break;
-				case "send_password_reset_email":
-					$email = $request['email'];
-
-
-					echo $this->reset_email($email) ? "true" : "false";
-
-					echo "ok3";
-					break;
-			}
-		}
-
 		public function get_authenticated_user(){
 			global $wpdb;
 
@@ -289,6 +340,7 @@ function wta_init() {
 				$c->add_to_cart( $item['product_id'], (int) $item['quantity'], 0, [], [] );
 			}
 		}
+
 		/**
 		 * @param array $quotation
 		 *
