@@ -4,7 +4,7 @@ Tags: native app, mobile app, woocommerce native app, iphone app, android app, w
 Requires at least: 4.8
 Tested up to: 4.9.2
 Requires PHP: 5.6
-Stable tag: 1.0.3
+Stable tag: 1.0.7
 License: GPLV2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 

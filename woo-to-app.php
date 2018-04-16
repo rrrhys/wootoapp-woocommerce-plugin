@@ -4,7 +4,7 @@
 Plugin Name:    Connector for WooToApp Mobile - WooCommerce Native Mobile App.
 Plugin URI:     https://www.wootoapp.com
 Description:    Enables various functionality required by WooToApp Mobile. WooToApp Mobile allows you to quickly and painlessly create a native mobile experience for your WooCommerce Store. Simply install and configure the plugin and we'll do the rest. WooToApp Mobile is free to use (branded) and offers paid subscriptions to release a standalone native mobile app.
-Version:        0.0.1
+Version:        1.0.7
 Author:         WooToApp - Rhys Williams
 Author          URI: https://www.wootoapp.com
 License:        GPL2
@@ -142,7 +142,7 @@ function wta_init() {
 			$pages      = json_encode( get_pages() );
 
 			$blindkey = get_option( "wootoapp_blindkey" );
-			$is_dev = false;
+			$is_dev = strpos($_SERVER['SERVER_NAME'], ".local") !== false ? true : false;
 
 			if($is_dev){
 				wp_register_script( 'wta_js', "http://localhost:3000/static/js/bundle.js" );
@@ -179,6 +179,8 @@ EOF
 
 			wp_enqueue_style( 'wta_css', "https://app.wootoapp.com/wta-wc-react.css" );
 			wp_enqueue_script( 'wta_js' );
+
+			wp_enqueue_media();
 		}
 
 		public function add_settings_tab( $settings_tabs ) {
@@ -271,11 +273,34 @@ EOF
 						die();
 					}
 				}
+				else{
+					if(isset($_GET['unauthenticated']) && $_GET['unauthenticated'] === 'true'){
+						// specifically apparently an unauthenticated request.
+						$method = $_GET['method'];
+						echo json_encode( $this->execute_callback_unauthenticated( $method) );
+						die();
+
+					}
+				}
 
 				echo json_encode( [ 'error' => 'Could not authenticate' ] );
 
 			}
 			die();
+		}
+
+		public function execute_callback_unauthenticated($method){
+			global $wpdb;
+
+			$request = json_decode( file_get_contents( 'php://input' ), true );;
+			switch ( $method ) {
+				case "payment_redirect":
+					$redirect_to = $_GET['redirect_to'];
+					$status = isset($_GET['status']) ? $_GET['status'] : "";
+                    wp_redirect($redirect_to . "?status=" . $status, 302);
+                    exit;
+					break;
+			}
 		}
 
 		public function execute_callback_authenticated( $method, $user ) {
@@ -357,13 +382,32 @@ EOF
 
 					return [ 'shipping_methods' => $shipping_methods, 'user_id' => $user_id ];
 					break;
+				case "try_apply_coupon":
+					$line_items = $request['line_items'];
+					$user_id    = $request['user_id'];
+					$coupon_code = $request['coupon_code'];
+
+
+					wp_set_current_user( $user_id );
+
+						$response = $this->_try_apply_coupon( $line_items, $coupon_code );
+					$valid = $response['valid'];
+					$discount = $response['discount'];
+					$notices = $response['notices'];
+					$coupons = $response['coupons'];
+
+					$success= true;
+
+					$response= compact('valid','discount','notices','coupons', 'success');
+
+					wp_send_json($response);
+					break;
 				case "send_password_reset_email":
 					$email = $request['email'];
 
 
 					echo $this->reset_email( $email ) ? "true" : "false";
 
-					echo "ok3";
 					break;
 			}
 		}
@@ -421,16 +465,25 @@ EOF
 
 		}
 
+		/**
+		 * @return array|bool|null|object|void
+		 */
 		public function get_authenticated_user(){
 			global $wpdb;
 
 			$consumer_key    = $_SERVER['PHP_AUTH_USER'];
 			$consumer_secret = $_SERVER['PHP_AUTH_PW'];
 
+			if(!$consumer_key){
+				$consumer_key = $_GET['consumer_key'];
+				$consumer_secret = $_GET['consumer_secret'];
+			}
+
+
 			$user = $this->get_user_data_by_consumer_key( $consumer_key );
 
 			if(!$user || !$consumer_secret){
-				return;
+				return false;
 			}
 			if ( ! hash_equals( $user->consumer_secret, $consumer_secret ) ) {
 
@@ -448,6 +501,46 @@ EOF
 			}
 		}
 
+		public function _try_apply_coupon($line_items, $coupon_code){
+
+			$c = WC()->cart;
+			foreach ( $c->coupons as $coup ) {
+				$c->remove_coupon( $coup );
+			}
+			$c->empty_cart();
+			$this->coupon = $coupon_code;
+
+
+			$this->_add_items_to_cart( $line_items, $c );
+
+			define( 'WOOCOMMERCE_CHECKOUT', true );
+			$c->calculate_totals();
+
+			$pre_total = $c->get_total();
+
+			$valid = $c->add_discount( $coupon_code );
+			$post_total = $c->get_total();
+			// get the discount
+			$discount = $c->discount_cart;
+
+			$coupons      = $c->coupons;
+			$coupon_array = [];
+			foreach ( $coupons as $code => $coupon ) {
+				$coupon_array[] = $code;
+			}
+
+			$payload = array( 'a'=>'b',
+			                  'valid'    => $valid,
+			                  'discount' => $discount,
+			                  'notices'  => wc_get_notices(),
+			                  'coupons'  => $coupon_array
+			);
+			wc_clear_notices();
+
+			return $payload;
+
+
+		}
 		/**
 		 * @param array $quotation
 		 *
@@ -492,8 +585,11 @@ EOF
 		}
 
 
-		/** ------------------------------------------------ **/
-
+		/**
+		 * @param $consumer_key
+		 *
+		 * @return array|null|object|void
+		 */
 		private function get_user_data_by_consumer_key( $consumer_key ) {
 			global $wpdb;
 
