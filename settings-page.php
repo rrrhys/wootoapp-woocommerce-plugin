@@ -5,6 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 ?>
 
 
+(The settings page)
 
 <div id="wta-root">
 

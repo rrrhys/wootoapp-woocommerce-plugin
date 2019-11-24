@@ -4,7 +4,7 @@
 Plugin Name:    Connector for WooToApp Mobile - WooCommerce Native Mobile App.
 Plugin URI:     https://www.wootoapp.com
 Description:    Enables various functionality required by WooToApp Mobile. WooToApp Mobile allows you to quickly and painlessly create a native mobile experience for your WooCommerce Store. Simply install and configure the plugin and we'll do the rest. WooToApp Mobile is free to use (branded) and offers paid subscriptions to release a standalone native mobile app.
-Version:        1.0.7
+Version:        1.0.8
 Author:         WooToApp - Rhys Williams
 Author          URI: https://www.wootoapp.com
 License:        GPL2
@@ -55,12 +55,13 @@ function wta_init() {
 			add_action( 'wp_ajax_nopriv_wootoapp_execute', array( $this, 'wootoapp_execute_callback' ) );
 
 
-			add_filter( 'woocommerce_settings_tabs_array', array( $this, 'add_settings_tab' ), 50 );
+			
+	//		add_filter( 'woocommerce_settings_tabs_array', array( $this, 'add_settings_tab' ), 50 );
 			add_action( 'woocommerce_settings_tabs_settings_wootoapp', array( $this, 'settings_tab' ) );
 			add_action( 'woocommerce_update_options_settings_wootoapp', array( $this, 'update_settings' ) );
 
 
-			add_action( 'admin_notices', array( $this, 'admin_notices' ), 15 );
+		//	add_action( 'admin_notices', array( $this, 'admin_notices' ), 15 );
 
 			if(isset( $_REQUEST['action']) && $_REQUEST['action'] === "wootoapp_execute"){
 				header( 'Access-Control-Allow-Credentials:true' );
@@ -83,17 +84,20 @@ function wta_init() {
 				update_option("wootoapp_blindkey", wp_generate_password());
 			}
 
+			/*
 			if ( (empty( $settings['secret_key'] ) || ! $settings['secret_key']) && ! ( isset( $_GET['page'], $_GET['tab'] ) && 'wc-settings' === $_GET['page'] && 'settings_wootoapp' === $_GET['tab'] ) ) {
 				$setting_link = $this->get_setting_link();
 				$this->add_admin_notice( 'prompt_connect', 'notice notice-warning',
 					sprintf( __( 'WooToApp is almost ready. To get started, <a href="%s">complete the setup wizard</a>.',
 						'wootoapp' ), $setting_link ) );
 			}
+			*/
 
 			/* END endpoints */
 
 		}
 
+		/*
 		public function admin_notices() {
 
 			if($this->notices){
@@ -105,17 +109,25 @@ function wta_init() {
 			}
 
 		}
+		*/
 
+		/*
 		public function add_admin_notice( $slug, $class, $message ) {
 			$this->notices[ $slug ] = array(
 				'class'   => $class,
 				'message' => $message,
 			);
 		}
+		*/
+		/*
 		public function get_setting_link() {
 
 			return admin_url( 'admin.php?page=wc-settings&tab=settings_wootoapp' );
 		}
+		*/
+
+		/* deprecated can remove */
+		/*
 		public function wta_css_and_js() {
 			$settings = $this->LoadSettingsArray();
 
@@ -182,7 +194,9 @@ EOF
 
 			wp_enqueue_media();
 		}
+		*/
 
+		
 		public function add_settings_tab( $settings_tabs ) {
 			$settings_tabs['settings_wootoapp'] = __( 'WooToApp', 'woocommerce-settings-tab-wootoapp' );
 
@@ -190,7 +204,7 @@ EOF
 		}
 
 		public function settings_tab() {
-			$this->wta_css_and_js();
+			//$this->wta_css_and_js();
 			include_once("settings-page.php");
 		}
 
@@ -242,6 +256,7 @@ EOF
 
 			return apply_filters( 'WC_settings_wootoapp_settings', $settings );
 		}
+		
 
 		public static function log( $message ) {
 			if ( empty( self::$log ) ) {
@@ -306,14 +321,61 @@ EOF
 		public function execute_callback_authenticated( $method, $user ) {
 
 			global $wpdb;
-
-			$request = json_decode( file_get_contents( 'php://input' ), true );;
+			error_log("execute_callback_authenticated $method");
+			$request =  json_decode(file_get_contents( 'php://input'  ), true);;
 			switch ( $method ) {
-				case "user_for_email":
-					$u = get_user_by( "email", $request['email'] );
-					wp_send_json( [ 'user' => $u, 'email_supplied' => $request['email'] ] );
+
+
+				/* THESE METHODS ARE USED IN THE NEW APP */
+					case "authenticate":
+										$creds                  = array();
+										$creds['user_login']    = $request["email"];
+										$creds['user_password'] = $request["password"];
+
+										$user = wp_signon( $creds, false );
+
+										if ( $user ) {
+											if ( $user->errors ) {
+												wp_send_json( [ 'result' => false, 'user' => null, 'errors' => $user->errors ] );
+
+											} else {
+												wp_send_json( [ 'result' => true, 'user' => $user ] );
+
+											}
+										}
+										wp_send_json( [ 'result' => false, 'user' => null ] );
+
+										break;
+
+										case "ping":
+
+										return [ 'response'=>'pong' ];
+										break;
+
+										
+				case "get_shipping_quotation":
+
+				
+
+					$line_items = $request['line_items'];
+					$user_id    = $request['user_id'];
+
+
+					wp_set_current_user( $user_id );
+					$shipping_methods = $this->_get_shipping_methods( $line_items );
+
+					return [ 'shipping_methods' => $shipping_methods, 'user_id' => $user_id ];
+					break;
+					
+				case "send_password_reset_email":
+					$email = $request['email'];
+
+
+					echo $this->reset_email( $email ) ? "true" : "false";
 
 					break;
+
+				/* THESE METHODS ARE NOT USED YET IN THE NEW APP. */
 				case "save_api_keys":
 					// save the user API keys.
 
@@ -352,36 +414,7 @@ EOF
 					}
 // Then woo will reload pg.
 					break;
-				case "authenticate":
-					$creds                  = array();
-					$creds['user_login']    = $request["email"];
-					$creds['user_password'] = $request["password"];
-
-					$user = wp_signon( $creds, false );
-
-					if ( $user ) {
-						if ( $user->errors ) {
-							wp_send_json( [ 'result' => false, 'user' => null, 'errors' => $user->errors ] );
-
-						} else {
-							wp_send_json( [ 'result' => true, 'user' => $user ] );
-
-						}
-					}
-					wp_send_json( [ 'result' => false, 'user' => null ] );
-
-					break;
-
-				case "get_shipping_quotation":
-					$line_items = $request['line_items'];
-					$user_id    = $request['user_id'];
-
-
-					wp_set_current_user( $user_id );
-					$shipping_methods = $this->_get_shipping_methods( $line_items );
-
-					return [ 'shipping_methods' => $shipping_methods, 'user_id' => $user_id ];
-					break;
+				
 				case "try_apply_coupon":
 					$line_items = $request['line_items'];
 					$user_id    = $request['user_id'];
@@ -401,13 +434,6 @@ EOF
 					$response= compact('valid','discount','notices','coupons', 'success');
 
 					wp_send_json($response);
-					break;
-				case "send_password_reset_email":
-					$email = $request['email'];
-
-
-					echo $this->reset_email( $email ) ? "true" : "false";
-
 					break;
 			}
 		}
@@ -461,7 +487,7 @@ EOF
 				wp_die( __( 'The email could not be sent.' ) . "<br />\n" . __( 'Possible reason: your host may have disabled the mail() function.' ) );
 			}
 
-			return true;
+					wp_send_json(['result'=>true]);
 
 		}
 
@@ -560,6 +586,7 @@ EOF
 
 			$packages = WC()->shipping->get_packages();
 			do_action( 'woocommerce_cart_totals_after_shipping' );
+
 
 			$package = $packages[0];
 			$rates   = $package['rates'];

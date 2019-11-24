@@ -1,10 +1,10 @@
 === Connector for WooToApp Mobile - WooCommerce Native Mobile App. ===
 Contributors: rrrhys
-Tags: native app, mobile app, woocommerce native app, iphone app, android app, woocommerce iphone app, woocommerce android app
+Tags: native app, mobile app, app builder, woocommerce app builder, woocommerce native app, iphone app, android app, woocommerce iphone app, woocommerce android app
 Requires at least: 4.8
-Tested up to: 4.9.2
+Tested up to: 5.2.4
 Requires PHP: 5.6
-Stable tag: 1.0.7
+Stable tag: 1.0.8
 License: GPLV2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,4 +18,4 @@ Use the plugin to configure home screen categories and banners, create push noti
 == Installation ==
 1. Install the plugin
 2. Finish setting up (involves creating API keys)
-3. We'll SMS you a link to download your personalised, branded store.
+3. We'll email you a link to configure, preview, download and test your mobile app.
