@@ -84,117 +84,10 @@ function wta_init() {
 				update_option("wootoapp_blindkey", wp_generate_password());
 			}
 
-			/*
-			if ( (empty( $settings['secret_key'] ) || ! $settings['secret_key']) && ! ( isset( $_GET['page'], $_GET['tab'] ) && 'wc-settings' === $_GET['page'] && 'settings_wootoapp' === $_GET['tab'] ) ) {
-				$setting_link = $this->get_setting_link();
-				$this->add_admin_notice( 'prompt_connect', 'notice notice-warning',
-					sprintf( __( 'WooToApp is almost ready. To get started, <a href="%s">complete the setup wizard</a>.',
-						'wootoapp' ), $setting_link ) );
-			}
-			*/
-
 			/* END endpoints */
 
 		}
 
-		/*
-		public function admin_notices() {
-
-			if($this->notices){
-				foreach ( (array) $this->notices as $notice_key => $notice ) {
-					echo "<div class='" . esc_attr( $notice['class'] ) . "'><p>";
-					echo wp_kses( $notice['message'], array( 'a' => array( 'href' => array() ) ) );
-					echo '</p></div>';
-				}
-			}
-
-		}
-		*/
-
-		/*
-		public function add_admin_notice( $slug, $class, $message ) {
-			$this->notices[ $slug ] = array(
-				'class'   => $class,
-				'message' => $message,
-			);
-		}
-		*/
-		/*
-		public function get_setting_link() {
-
-			return admin_url( 'admin.php?page=wc-settings&tab=settings_wootoapp' );
-		}
-		*/
-
-		/* deprecated can remove */
-		/*
-		public function wta_css_and_js() {
-			$settings = $this->LoadSettingsArray();
-
-			$args               = array(
-				'taxonomy' => "product_cat",
-			);
-			$product_categories = get_terms( $args );
-
-			$paypal_email = "";
-
-			$paypal_opts = get_option( "woocommerce_paypal_settings" );
-			if ( $paypal_opts ) {
-				$paypal_email = $paypal_opts['email'];
-			}
-
-			$store_id   = str_replace( "\'", "", $settings['store_id'] );
-			$secret_key = str_replace( "\'", "", $settings['secret_key'] );
-			$cats_json  = json_encode( $product_categories );
-			$currencies   = json_encode( get_woocommerce_currencies() );
-			$siteurl = get_option("siteurl");
-			$admin_email = get_option("admin_email");
-			$store_name = get_option( "blogname" );
-			$currency = get_woocommerce_currency();
-			$pages      = json_encode( get_pages() );
-
-			$blindkey = get_option( "wootoapp_blindkey" );
-			$is_dev = strpos($_SERVER['SERVER_NAME'], ".local") !== false ? true : false;
-
-			if($is_dev){
-				wp_register_script( 'wta_js', "http://localhost:3000/static/js/bundle.js" );
-
-			}
-			else{
-				wp_register_script( 'wta_js', "https://app.wootoapp.com/wta-wc-react.js" );
-
-			}
-
-			wp_add_inline_script( 'wta_js', <<<EOF
-					    window.WooToApp = {
-					        auth: {
-					            id: '{$store_id}',
-					            secret_key: '{$secret_key}'
-					        },
-					        blindkey: '{$blindkey}',
-					        environment: "prod",
-					        has_dev_params: false,
-					        categories: $cats_json,
-					        pages: $pages,
-					        woo_currencies:$currencies,
-					        currency: "$currency",
-					        paypal_email: "$paypal_email",
-					        store_url: "$siteurl",
-					        store_name: "$store_name",
-					        admin_email: "$admin_email"
-					    }
-					
-					    window.WooToApp.log = window.WooToApp.environment == "prod" ? function(){} : console.log;
-EOF
-				, "before" );
-
-
-			wp_enqueue_style( 'wta_css', "https://app.wootoapp.com/wta-wc-react.css" );
-			wp_enqueue_script( 'wta_js' );
-
-			wp_enqueue_media();
-		}
-		*/
 
 		
 		public function add_settings_tab( $settings_tabs ) {
@@ -373,46 +266,6 @@ EOF
 
 					echo $this->reset_email( $email ) ? "true" : "false";
 
-					break;
-
-				/* THESE METHODS ARE NOT USED YET IN THE NEW APP. */
-				case "save_api_keys":
-					// save the user API keys.
-
-					$input = file_get_contents( 'php://input' );
-					$vars = json_decode($input, true );
-
-					$other_params = json_decode(base64_decode($_GET['params']));
-					$consumer_secret = $vars['consumer_secret'];
-					$consumer_key    = $vars['consumer_key'];
-
-					update_option("WC_settings_wootoapp_ck", $consumer_key);
-					update_option( "WC_settings_wootoapp_cs", $consumer_secret );
-
-					// awesome we have everything. Go off and tell the WTA server, get client ID and secret and save them where app expects it.
-					$response = wp_remote_post( "https://app.wootoapp.com/api/register/from-plugin", [
-						'method'=>'POST',
-						'timeout'=>45,
-						'body'=>[
-							'admin_email'=> $other_params->admin_email,
-							'store_url'=> $other_params->store_url,
-							'store_name'=> $other_params->store_name,
-							'wta_mobile' => $other_params->wta_mobile,
-							'consumer_key'=>$vars['consumer_key'],
-							'consumer_secret'=>$vars['consumer_secret']
-						]
-					] );
-
-					if ( is_wp_error( $response ) ) {
-						$error_message = $response->get_error_message();
-						error_log("Something went wrong: $error_message");
-					} else {
-						update_option( 'wta_response', $response['body'] );
-						$keys = json_decode($response['body']);
-						update_option( 'WC_settings_wootoapp_site_id', $keys->id );
-						update_option( 'WC_settings_wootoapp_secret_key', $keys->secret_key );
-					}
-// Then woo will reload pg.
 					break;
 				
 				case "try_apply_coupon":
